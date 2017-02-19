@@ -1,0 +1,363 @@
+import abc
+from pprint import pprint
+import sqlite3 as lite
+
+import utils
+
+
+# size limit for the number of objects to hold at once
+# before writing out
+_CHUNK_SIZE = 100
+
+
+class BaseConverter(object):
+    """Abstract converter base class"""
+    @abc.abstractmethod
+    def save_family(self, family):
+        """Write out some family obj
+
+        Args:
+            family (_Family): obj to save
+        """
+        pass
+
+    @abc.abstractmethod
+    def save_person(self, person):
+        """Write out some person obj
+
+        Args:
+            person (_Person): obj to save
+        """
+        pass
+
+    @staticmethod
+    def help_string():
+        """Cli help string for this converter
+
+        Returns:
+            str
+        """
+        return ""
+
+    @staticmethod
+    def needs_arg():
+        """Whether or not this class requires an arg
+
+        Returns:
+            bool
+        """
+        return False
+
+    def load_arg(self, arg):
+        """When instantiated the given commadline arg (str)
+        will be handed to the class.
+
+        What this means (if anything) is up to the class author.
+
+        Args:
+            arg (str):
+        """
+        pass
+
+    def flush(self):
+        pass
+
+
+class FamilyCsv(BaseConverter):
+    """
+    FamilyCSV outputs only family data as:
+        FamilyID,HusbandId,WifeId,marriage_date
+    """
+    def __init__(self):
+        self._outfile = ""
+        self._chunk_size = _CHUNK_SIZE
+        self._rows = []
+        self._filehandler = None
+
+    def flush(self):
+        """
+        Save any remaining data in memory and close file handler
+        """
+        if self._rows:
+            self._save_current_rows()
+
+        try:
+            self._filehandler.close()
+        except IOError as e:
+            print("Error closing CSV file-handler", e)
+
+    def _initialize(self):
+        """
+        Open output file
+        """
+        self._filehandler = open(self._outfile, "a+")
+
+    def _save_current_rows(self):
+        """
+        Write currently held family data in memory to disk
+        """
+        self._filehandler.writelines(self._rows)
+        self._rows = []
+
+    @staticmethod
+    def _family_row(family):
+        """Extract csv row of family data from given family
+
+        Args:
+            family (_Family): family to extract data from
+
+        Returns:
+            str
+        """
+        return "%s\n" % ",".join([
+            family.id,
+            family.husband_id,
+            family.wife_id,
+            utils.date_to_string(family.marriage_date),
+        ])
+
+    def save_family(self, family):
+        """Write family to disk
+
+        NB, this writes to the csv file in batches of _CHUNKSIZE
+        rather than on-demand
+
+        Args:
+            family (_Family): family to save
+
+        Raises:
+            IOError
+        """
+        self._rows.append(self._family_row(family))
+
+        if self._rows >= self._chunk_size:
+            self._save_current_rows()
+
+    def save_person(self, person):
+        pass
+
+    @staticmethod
+    def needs_arg():
+        return True
+
+    @staticmethod
+    def help_string():
+        return "Output file path for family csv data (created if doesn't exist)"
+
+    def load_arg(self, arg):
+        """When instantiated the given commadline arg (str)
+        will be handed to the class.
+
+        What this means (if anything) is up to the class author.
+
+        Args:
+            arg (str):
+        """
+        self._outfile = arg
+        self._initialize()
+
+
+class SqliteConverter(BaseConverter):
+    """
+    Write out sqlite file
+    """
+    _CREATE_TABLE_PERSON = """CREATE TABLE IF NOT EXISTS "main"."people" (
+        "id" INTEGER PRIMARY KEY NOT NULL,
+        "firstname" TEXT NOT NULL,
+        "surname" TEXT NOT NULL,
+        "married_name" TEXT,
+        "aliases" TEXT,
+        "given_names" TEXT,
+        "is_male" TINYINT NOT NULL,
+        "note" TEXT,
+        "childhood_family_id" INTEGER,
+        "last_updated" INTEGER,
+        "birth_place" TEXT,
+        "birth_date" INTEGER,
+        "death_place" TEXT,
+        "death_date" INTEGER,
+        "burial_place" TEXT,
+        "burial_date" INTEGER
+    );"""
+
+    _INSERT_PERSON = """INSERT OR REPLACE INTO people
+      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+
+    _CREATE_TABLE_FAMILY = """CREATE TABLE IF NOT EXISTS "main"."families" (
+        "id" INTEGER PRIMARY KEY NOT NULL,
+        "husband_id" INTEGER NOT NULL,
+        "wife_id" INTEGER NOT NULL,
+        "marriage_date" INTEGER,
+        "marriage_place" TEXT,
+        "note" TEXT
+    );"""
+
+    _INSERT_FAMILY = """INSERT OR REPLACE INTO families
+      VALUES(?, ?, ?, ?, ?, ?)"""
+
+    def __init__(self):
+        self._outfile = ""
+        self._chunk_size = _CHUNK_SIZE
+        self._f_rows = []
+        self._p_rows = []
+
+        self._conn = None
+        self._cur = None
+
+    def flush(self):
+        """
+        Flush all remaining data to disk, close db connection
+        """
+        if self._p_rows:
+            self._save_current_people()
+
+        if self._f_rows:
+            self._save_current_families()
+
+        try:
+            self._conn.close()
+        except IOError as e:
+            print("Error closing sqlite connection", e)
+
+    def _initialize(self):
+        """
+        Open connection to db, prepare tables if they don't exist
+        """
+        self._conn = lite.connect(self._outfile)
+        self._cur = self._conn.cursor()
+
+        self._cur.execute(self._CREATE_TABLE_PERSON)
+        self._cur.execute(self._CREATE_TABLE_FAMILY)
+
+    @staticmethod
+    def help_string():
+        return "Output file path (created if doesn't exist)"
+
+    @staticmethod
+    def needs_arg():
+        return True
+
+    @staticmethod
+    def _family_values(family):
+        """Extract sql row data from family
+
+        Args:
+            family (_Family):
+
+        Returns:
+            []Object
+        """
+        return [
+            utils.force_int(family.id),
+            utils.force_int(family.husband_id),
+            utils.force_int(family.wife_id),
+            utils.date_to_epoch(family.marriage_date),
+            family.marriage_place,
+            ""
+        ]
+
+    @staticmethod
+    def _person_values(person):
+        """Extract sql row data from person
+
+        Args:
+            person (_Person): obj to extract values from
+
+        Returns:
+            []Object
+        """
+        gender = 0
+        if person.is_male:
+            gender = 1
+
+        return [
+            utils.force_int(person.id),
+            person.firstname,
+            person.surname,
+            person.married_name,
+            "|".join(person.nicknames),
+            "|".join(person.given_names),
+            gender,
+            person.note,
+
+            utils.force_int(person.childhood_family_id),
+            utils.date_to_epoch(person.last_updated),
+
+            person.birth_place,
+            utils.date_to_epoch(person.birth_date),
+
+            person.death_place,
+            utils.date_to_epoch(person.death_date),
+
+            person.burial_place,
+            utils.date_to_epoch(person.burial_date),
+        ]
+
+    def _save_current_people(self):
+        """
+        Flush person data currently held in memory to disk
+        """
+        self._cur.executemany(
+            self._INSERT_PERSON,
+            self._p_rows
+        )
+        self._conn.commit()
+        self._p_rows = []
+
+    def _save_current_families(self):
+        """
+        Flush family data currently held in memory to disk
+        """
+        self._cur.executemany(
+            self._INSERT_FAMILY,
+            self._f_rows
+        )
+        self._conn.commit()
+        self._f_rows = []
+
+    def save_family(self, family):
+        """Queue up family row to be saved
+
+        Args:
+            family (_Family): family to save
+        """
+        self._f_rows.append(self._family_values(family))
+        if len(self._f_rows) >= self._chunk_size:
+            self._save_current_families()
+
+    def save_person(self, person):
+        """Queue up person row to be saved
+
+        Args:
+            person (_Person): person to save
+        """
+        self._p_rows.append(self._person_values(person))
+        if len(self._p_rows) >= self._chunk_size:
+            self._save_current_people()
+
+    def load_arg(self, arg):
+        """When instantiated the given commadline arg (str)
+        will be handed to the class.
+
+        What this means (if anything) is up to the class author.
+
+        Args:
+            arg (str):
+        """
+        self._outfile = arg
+        self._initialize()
+
+
+class PrintConverter(BaseConverter):
+    """
+    The 'hello world' converter: reads in ged file & prints to stdout
+    """
+    def save_family(self, family):
+        pprint(family.to_string())
+
+    def save_person(self, person):
+        pprint(person.to_string())
+
+    @staticmethod
+    def help_string():
+        return "Print data to shell [default if no converter selected]"
