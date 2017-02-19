@@ -2,11 +2,11 @@ Simple script to read / convert family ancestral data files (.ged) to other form
 
 
 Example of reading in "all.ged" and writing out an sqlite db file "all.sqlite"
-{code: python}
+```
 python ./main.py -i all.ged --to-sqlite all.sqlite
-{code}
+```
 
-{code: python}
+```
 usage: main.py [-h] -i INPUT [--to-print] [--to-familyCsv TO_FAMILYCSV]
                [--to-sqlite TO_SQLITE]
 
@@ -23,7 +23,7 @@ optional arguments:
                         doesn't exist)
   --to-sqlite TO_SQLITE
                         Output file path (created if doesn't exist)
-{code}
+```
 
 You can write to multiple output(s) at once.
 
