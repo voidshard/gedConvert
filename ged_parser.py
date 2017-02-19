@@ -544,10 +544,11 @@ def _save(converters, some_obj):
 
 
 def parse_ged_file(converters, filepath):
-    """Convert a par file
-
+    """Convert a .ged file found at filepath to the formats
+    decided by our given converters.
+    
     Args:
-        converters ([]Converter):
+        converters ([]Converter): Converter objects (to write output)
         filepath (str):
 
     Raises:
@@ -561,7 +562,7 @@ def parse_ged_file(converters, filepath):
     with open(filepath, "r") as f:
             line = " "  # initialize the line to be non-empty
             while line:
-                # read one line at a time (handle arbitrarily large db)
+                # read one line at a time
                 line = f.readline()
 
                 # parse the line into segments
