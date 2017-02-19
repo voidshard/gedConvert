@@ -17,11 +17,18 @@ from converters import BaseConverter
 
 _ERR_PARSING_DATE = ("Warning: Expected datetime as 'day month year' but got "
                      "'%s', using default values & continuing\n")
-_LIST_KEYS = ["CHIL", "_AKA"]
+_GED_LIST_KEYS = ["CHIL", "_AKA"]
 
 
 def _parse_key_value(line):
-    """Parse raw line from PAR file and return key, value
+    """Parse raw line from .ged file and return key, value
+
+    Each line is,
+      <int> <str> <str>
+    Thus,
+        ?    KEY  value
+
+    If you find out what the int is for, I'd be curious to know ..
 
     Args:
         line (str):
@@ -78,9 +85,7 @@ def _handle_married_name(val):
 
 
 def _handle_gender(val):
-    """Handle SEX case
-
-    Return if gender is 'male'
+    """Handle SEX case, return if gender is male
 
     Args:
         val (str):
@@ -98,9 +103,9 @@ def _handle_date(val):
     We need to handle edge cases:
         - %d %b %Y can be followed by (int)
             -> drop superfluous (int)
-        - %d may not be given
-            -> data incomplete (day missing), set day to '1'
+        - any of %d %b %Y may not be given
             -> print warning
+            -> insert default values for missing bits
 
     Args:
         val (str): date string [%d %b %Y]
@@ -127,9 +132,6 @@ def _handle_time(val):
 
     Returns:
         datetime.Datetime
-
-    Raises:
-        ValueError if unable to cast values to ints
     """
     return datetime.datetime.strptime(val, "%H:%M:%S")
 
@@ -229,7 +231,7 @@ class _DBObj(object):
             self._multi_data[self._multiline_key] = tmp
             return
 
-        if key in _LIST_KEYS:  # in some cases we can have a list of things
+        if key in _GED_LIST_KEYS:  # in some cases we can have a list of things
             ls = self._data.get(key, [])
             ls.append(parsed_data)
             self._data[key] = ls

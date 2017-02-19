@@ -135,6 +135,7 @@ def add_date_and_time(date, tyme):
     Returns:
         datetime.Datetime
     """
+    # ToDo: There must be a nicer way to do this
     s = "%d %d %d %d %d %d" % (
         date.day,
         date.month,
