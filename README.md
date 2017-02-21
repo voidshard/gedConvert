@@ -33,8 +33,15 @@ you need some other form of output.
 
 
 Notes,
-- Parser attempts to continue when incomplete data is provided using default values, results may be strange
-  and require fixing - I can change what the script defaults to but 'null' is hard to extract data from
+- Dates are kept internally as int or None values for each of 'day' 'month' and 'year' to combat incomplete data
 - Parser only keeps small chunks of the input in memory at any one time so it should handle large data sets
-- If you add more classes, please push the code up
-- If you find bugs, please send the err(s) & some (small) test datafile to repro the bug with
+
+Please push code up if,
+- You add more classes to extend functionality
+- You improve anything!
+- You find bugs (Please also send the err(s) & some (small) test datafile to repro the bug with)
+
+
+Bugs fixed,
+- Bug where the last obj record would not be saved
+- Parser using silly defaults instead of simply 'None' (whose idea WAS that anyway ..)
