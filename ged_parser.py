@@ -98,7 +98,7 @@ def _handle_gender(val):
 
 
 def _handle_date(val):
-    """Return dateime obj from date
+    """Return day, month, year (where given) from date str
 
     We need to handle edge cases:
         - %d %b %Y can be followed by (int)
@@ -106,9 +106,10 @@ def _handle_date(val):
         - any of %d %b %Y may not be given
             -> print warning
             -> insert default values for missing bits
+        - any of the args may include "c" or "approx"
 
     Args:
-        val (str): date string [%d %b %Y]
+        val (str): date string (hopefully [%d %b %Y])
 
     Returns:
         int, int, int
@@ -166,6 +167,9 @@ def _handle_link_id(val):
 def _extract_datetime(record):
     """Turn the DATE and TIME keys into a python datetime
 
+    If any of the date is not provided None will be returned.
+    The time is will be returned a 0:0:0 if not defined.
+
     Args:
         record (dict): dict that includes a DATE and/or TIME
 
@@ -173,7 +177,7 @@ def _extract_datetime(record):
         datetime.Datetime or None
     """
     d_day, d_month, d_year = record.get("DATE")
-    ctime = record.get("TIME")
+    ctime = record.get("TIME") or datetime.datetime.strptime("0:0:0", "%H:%M:%S")
     if all([d_day, d_month, d_year]):
         s = "%s %s %s %d %d %d" % (
             d_day,
@@ -261,15 +265,22 @@ class _DBObj(object):
         return self._data.get("NOTE", "")
 
     def _get_date(self, key, num):
-        """
+        """Internal func to get one of day, month year
+        of a given event (key)
 
         Args:
-            key:
-            num:
+            key (str):
+            num (int): index in day, month, year tuple
 
         Returns:
-            str or None
+            int or None
+
+        Raises:
+            ValueError if 0, 1, 2 not given for num
         """
+        if num not in [0, 1, 2]:
+            raise ValueError("Require 0, 1 or 2, given %s", num)
+
         rec = self._multi_data.get(key, {}).get("DATE")
         if rec:
             return rec[num]
@@ -309,7 +320,7 @@ class _Family(_DBObj):
         """Return marriage date
 
         Returns:
-            str or None
+            int or None
         """
         return self._get_date("MARR", 0)
 
@@ -318,7 +329,7 @@ class _Family(_DBObj):
         """Return marriage date
 
         Returns:
-            str or None
+            int or None
         """
         return self._get_date("MARR", 1)
 
@@ -327,7 +338,7 @@ class _Family(_DBObj):
         """Return marriage date
 
         Returns:
-            str or None
+            int or None
         """
         return self._get_date("MARR", 2)
 
@@ -428,7 +439,7 @@ class _Person(_DBObj):
         """Return the person's birth year
 
         Returns:
-            str, str, str
+            int or None
         """
         return self._get_date("BIRT", 2)
         
@@ -437,7 +448,7 @@ class _Person(_DBObj):
         """Return the person's date of death
 
         Returns:
-            str or None
+            int or None
         """
         return self._get_date("DEAT", 2)
 
@@ -448,7 +459,7 @@ class _Person(_DBObj):
         Any of these values may be None if data is incomplete
 
         Returns:
-            str or None
+            int or None
         """
         return self._get_date("BURI", 2)
 
@@ -457,7 +468,7 @@ class _Person(_DBObj):
         """Return the person's birth month
 
         Returns:
-            str, str, str
+            int or None
         """
         return self._get_date("BIRT", 1)
 
@@ -466,7 +477,7 @@ class _Person(_DBObj):
         """Return the month the person died in
 
         Returns:
-            str or None
+            int or None
         """
         return self._get_date("DEAT", 1)
 
@@ -475,7 +486,7 @@ class _Person(_DBObj):
         """Return the month the person was buried in
 
         Returns:
-            str or None
+            int or None
         """
         return self._get_date("BURI", 1)
     
@@ -484,7 +495,7 @@ class _Person(_DBObj):
         """Return the person's birth day
 
         Returns:
-            str, str, str
+            int or None
         """
         return self._get_date("BIRT", 0)
 
@@ -493,7 +504,7 @@ class _Person(_DBObj):
         """Return the day the person died in
 
         Returns:
-            str or None
+            int or None
         """
         return self._get_date("DEAT", 0)
 
@@ -502,7 +513,7 @@ class _Person(_DBObj):
         """Return the day the person was buried in
 
         Returns:
-            str or None
+            int or None
         """
         return self._get_date("BURI", 0)
 
