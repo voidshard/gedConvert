@@ -113,7 +113,10 @@ class FamilyCsv(BaseConverter):
             family.id,
             family.husband_id,
             family.wife_id,
-            utils.date_to_string(family.marriage_date),
+            "%s-%s-%s" % (
+                family.marriage_day,
+                family.marriage_month,
+                family.marriage_year)
         ])
 
     def save_family(self, family):
@@ -173,27 +176,38 @@ class SqliteConverter(BaseConverter):
         "childhood_family_id" INTEGER,
         "last_updated" INTEGER,
         "birth_place" TEXT,
-        "birth_date" INTEGER,
         "death_place" TEXT,
-        "death_date" INTEGER,
         "burial_place" TEXT,
-        "burial_date" INTEGER
+
+        "birth_date_day" INTEGER,
+        "birth_date_month" INTEGER,
+        "birth_date_year" INTEGER,
+
+        "death_date_day" INTEGER,
+        "death_date_month" INTEGER,
+        "death_date_year" INTEGER,
+
+        "burial_date_day" INTEGER,
+        "burial_date_month" INTEGER,
+        "burial_date_year" INTEGER
     );"""
 
     _INSERT_PERSON = """INSERT OR REPLACE INTO people
-      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? , ? , ?)"""
 
     _CREATE_TABLE_FAMILY = """CREATE TABLE IF NOT EXISTS "main"."families" (
         "id" INTEGER PRIMARY KEY NOT NULL,
         "husband_id" INTEGER NOT NULL,
         "wife_id" INTEGER NOT NULL,
-        "marriage_date" INTEGER,
+        "marriage_day" INTEGER,
+        "marriage_month" INTEGER,
+        "marriage_year" INTEGER,
         "marriage_place" TEXT,
         "note" TEXT
     );"""
 
     _INSERT_FAMILY = """INSERT OR REPLACE INTO families
-      VALUES(?, ?, ?, ?, ?, ?)"""
+      VALUES(?, ?, ?, ?, ?, ?, ?, ?)"""
 
     def __init__(self):
         self._outfile = ""
@@ -251,7 +265,9 @@ class SqliteConverter(BaseConverter):
             utils.force_int(family.id),
             utils.force_int(family.husband_id),
             utils.force_int(family.wife_id),
-            utils.date_to_epoch(family.marriage_date),
+            family.marriage_day,
+            family.marriage_month,
+            family.marriage_year,
             family.marriage_place,
             ""
         ]
@@ -284,13 +300,20 @@ class SqliteConverter(BaseConverter):
             utils.date_to_epoch(person.last_updated),
 
             person.birth_place,
-            utils.date_to_epoch(person.birth_date),
-
             person.death_place,
-            utils.date_to_epoch(person.death_date),
-
             person.burial_place,
-            utils.date_to_epoch(person.burial_date),
+
+            person.birth_day,
+            person.birth_month,
+            person.birth_year,
+
+            person.death_day,
+            person.death_month,
+            person.death_year,
+
+            person.burial_day,
+            person.burial_month,
+            person.burial_year,
         ]
 
     def _save_current_people(self):

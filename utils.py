@@ -6,13 +6,6 @@ import datetime
 import re
 
 
-_DEFAULT_YEAR = "1000"
-_DEFAULT_MONTH = "Jan"
-_DEFAULT_DAY = "01"
-
-_DEFAULT_OUTPUT_DATE_STR_IF_NONE = "None"
-_DEFAULT_OUTPUT_DATE_INT_IF_NONE = 0
-
 _EPOCH = datetime.datetime.utcfromtimestamp(0)
 
 
@@ -28,7 +21,7 @@ def date_to_string(date):
         str
     """
     if not date:
-        return _DEFAULT_OUTPUT_DATE_STR_IF_NONE
+        return None
     return str(date.date())
 
 
@@ -39,21 +32,11 @@ def date_to_epoch(date):
         date (datetime.Datetime:
 
     Returns:
-        int
+        int or None
     """
     if not date:
-        return 0
+        return None
     return int((date - _EPOCH).total_seconds())
-
-
-def default_datetime():
-    """Return the default datetime
-
-    Returns:
-        datetime.Datetime
-    """
-    s = "%s %s %s 0:0:0" % (_DEFAULT_DAY, _DEFAULT_MONTH, _DEFAULT_YEAR)
-    return datetime.datetime.strptime(s, "%d %b %Y %H:%M:%S")
 
 
 def strip_alpha(val):
@@ -123,50 +106,50 @@ def is_year(val):
     return is_int(val) and len(val) > 2
 
 
-def add_date_and_time(date, tyme):
-    """Given two datetimes a and b, return the datetime that
-    includes the date of the first and the time of the second.
-
+def month_str_to_int(month):
+    """
 
     Args:
-        date (datetime.Datetime): datetime to use date from
-        tyme (datetime.Datetime): datetime to use time from
+        month (str):
 
     Returns:
-        datetime.Datetime
+        int
+
+    Raises:
+        ValueError
     """
-    # ToDo: There must be a nicer way to do this
-    s = "%d %d %d %d %d %d" % (
-        date.day,
-        date.month,
-        date.year,
-        tyme.hour,
-        tyme.minute,
-        tyme.second,
-    )
-    return datetime.datetime.strptime(s, "%d %m %Y %H %M %S")
+    d = datetime.datetime.strptime(month, "%b")
+    return d.month
 
 
 def parse_partial_date(date_parts):
     """Determine which of the day (int), month (str) and year (int)
     we have been given.
 
+    We've got quite a few
+
     Args:
         date_parts ([]str): parts of a date string split
 
     Returns:
-        str, str, str
+        int, int, int
     """
-    day = _DEFAULT_DAY
-    month = _DEFAULT_MONTH
-    year = _DEFAULT_YEAR
+    day = None
+    month = None
+    year = None
 
     for part in date_parts:
-        if not is_int(part):
-            # only the month is always a string
-            month = part
-        elif is_year(part):
-            year = part
-        else:
-            day = part
+        stripped = strip_alpha(part)
+        stripped_is_int = is_int(stripped)
+
+        if stripped == "":
+            # only the month is always a string with no numbers
+            try:
+                month = month_str_to_int(part)
+            except ValueError:
+                pass
+        elif is_year(stripped):
+            year = force_int(stripped)
+        elif stripped_is_int:
+            day = force_int(stripped)
     return day, month, year

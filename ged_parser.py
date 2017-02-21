@@ -111,17 +111,10 @@ def _handle_date(val):
         val (str): date string [%d %b %Y]
 
     Returns:
-        datetime.Datetime
+        int, int, int
     """
     bits = val.split(" ")
-    num_bits = len(bits)
-    if num_bits > 2:
-        return datetime.datetime.strptime(" ".join(bits[0:3]), "%d %b %Y")
-
-    sys.stderr.write(_ERR_PARSING_DATE % val)
-
-    day, month, year = utils.parse_partial_date(bits)
-    return datetime.datetime.strptime(" ".join([day, month, year]), "%d %b %Y")
+    return utils.parse_partial_date(bits)
 
 
 def _handle_time(val):
@@ -177,11 +170,21 @@ def _extract_datetime(record):
         record (dict): dict that includes a DATE and/or TIME
 
     Returns:
-        datetime.Datetime
+        datetime.Datetime or None
     """
-    cdate = record.get("DATE", utils.default_datetime())
-    ctime = record.get("TIME", utils.default_datetime())
-    return utils.add_date_and_time(cdate, ctime)
+    d_day, d_month, d_year = record.get("DATE")
+    ctime = record.get("TIME")
+    if all([d_day, d_month, d_year]):
+        s = "%s %s %s %d %d %d" % (
+            d_day,
+            d_month,
+            d_year,
+            ctime.hour,
+            ctime.minute,
+            ctime.second,
+        )
+        return datetime.datetime.strptime(s, "%d %m %Y %H %M %S")
+    return None
 
 
 # end handlers -- start classes
@@ -257,6 +260,20 @@ class _DBObj(object):
         """
         return self._data.get("NOTE", "")
 
+    def _get_date(self, key, num):
+        """
+
+        Args:
+            key:
+            num:
+
+        Returns:
+            str or None
+        """
+        rec = self._multi_data.get(key, {}).get("DATE")
+        if rec:
+            return rec[num]
+
 
 class _Family(_DBObj):
     @property
@@ -288,14 +305,31 @@ class _Family(_DBObj):
         return self._data.get("WIFE")
 
     @property
-    def marriage_date(self):
+    def marriage_day(self):
         """Return marriage date
 
         Returns:
-            datetime or None
+            str or None
         """
-        marr = self._multi_data.get("MARR", {})
-        return marr.get("DATE")
+        return self._get_date("MARR", 0)
+
+    @property
+    def marriage_month(self):
+        """Return marriage date
+
+        Returns:
+            str or None
+        """
+        return self._get_date("MARR", 1)
+
+    @property
+    def marriage_year(self):
+        """Return marriage date
+
+        Returns:
+            str or None
+        """
+        return self._get_date("MARR", 2)
 
     @property
     def marriage_place(self):
@@ -390,26 +424,87 @@ class _Person(_DBObj):
         return birth_record.get("PLAC", "")
 
     @property
-    def birth_date(self):
-        """Return the person's birthdate
+    def birth_year(self):
+        """Return the person's birth year
 
         Returns:
-            datetime.Datetime or None
+            str, str, str
         """
-        birth_record = self._multi_data.get("BIRT", {})
-        if birth_record:
-            return _extract_datetime(birth_record)
-
+        return self._get_date("BIRT", 2)
+        
     @property
-    def death_date(self):
+    def death_year(self):
         """Return the person's date of death
 
         Returns:
-            datetime.Datetime or None
+            str or None
         """
-        d_record = self._multi_data.get("DEAT", {})
-        if d_record:
-            return _extract_datetime(d_record)
+        return self._get_date("DEAT", 2)
+
+    @property
+    def burial_year(self):
+        """Return the person's date of burial
+
+        Any of these values may be None if data is incomplete
+
+        Returns:
+            str or None
+        """
+        return self._get_date("BURI", 2)
+
+    @property
+    def birth_month(self):
+        """Return the person's birth month
+
+        Returns:
+            str, str, str
+        """
+        return self._get_date("BIRT", 1)
+
+    @property
+    def death_month(self):
+        """Return the month the person died in
+
+        Returns:
+            str or None
+        """
+        return self._get_date("DEAT", 1)
+
+    @property
+    def burial_month(self):
+        """Return the month the person was buried in
+
+        Returns:
+            str or None
+        """
+        return self._get_date("BURI", 1)
+    
+    @property
+    def birth_day(self):
+        """Return the person's birth day
+
+        Returns:
+            str, str, str
+        """
+        return self._get_date("BIRT", 0)
+
+    @property
+    def death_day(self):
+        """Return the day the person died in
+
+        Returns:
+            str or None
+        """
+        return self._get_date("DEAT", 0)
+
+    @property
+    def burial_day(self):
+        """Return the day the person was buried in
+
+        Returns:
+            str or None
+        """
+        return self._get_date("BURI", 0)
 
     @property
     def death_place(self):
@@ -420,17 +515,6 @@ class _Person(_DBObj):
         """
         d_record = self._multi_data.get("DEAT", {})
         return d_record.get("PLAC", "")
-
-    @property
-    def burial_date(self):
-        """Return the person's date of burial
-
-        Returns:
-            datetime.Datetime or None
-        """
-        d_record = self._multi_data.get("BURI", {})
-        if d_record:
-            return _extract_datetime(d_record)
 
     @property
     def burial_place(self):
@@ -546,7 +630,7 @@ def _save(converters, some_obj):
 def parse_ged_file(converters, filepath):
     """Convert a .ged file found at filepath to the formats
     decided by our given converters.
-    
+
     Args:
         converters ([]Converter): Converter objects (to write output)
         filepath (str):
@@ -567,18 +651,19 @@ def parse_ged_file(converters, filepath):
 
                 # parse the line into segments
                 key, value = _parse_key_value(line)
-                if key == _KEY_STOP:
-                    break  # we've reached the end
 
                 # we've reached the definition of a new obj,
                 # out with the old, in with the new
-                if _is_new_obj_line(key):
+                if _is_new_obj_line(key) or key == _KEY_STOP:
                     if last_obj:
                         # Stop downstream converters from changing our obj
                         last_obj.lock()
 
                         # Call relevant save func of each obj
                         _save(converters, last_obj)
+
+                    if key == _KEY_STOP:
+                        break
 
                     last_obj = _decide_next_obj(key, value)
                     continue
