@@ -133,7 +133,7 @@ class FamilyCsv(BaseConverter):
         """
         self._rows.append(self._family_row(family))
 
-        if self._rows >= self._chunk_size:
+        if len(self._rows) >= self._chunk_size:
             self._save_current_rows()
 
     def save_person(self, person):
