@@ -1,4 +1,5 @@
 import abc
+import os
 from pprint import pprint
 import sqlite3 as lite
 
@@ -27,6 +28,17 @@ class BaseConverter(object):
 
         Args:
             person (_Person): obj to save
+        """
+        pass
+
+    @abc.abstractmethod
+    def clear_existing_data(self):
+        """Remove any existing data in the output file
+
+        By default implementations should append not remove.
+
+        This function is optional for the user(s) to force "replace"
+        behaviour in the output over "append"
         """
         pass
 
@@ -73,6 +85,22 @@ class FamilyCsv(BaseConverter):
         self._chunk_size = _CHUNK_SIZE
         self._rows = []
         self._filehandler = None
+
+    def clear_existing_data(self):
+        """Remove output file if it exists
+
+        Raises:
+            IOError if unable to remove file
+        """
+        if not self._outfile:
+            return
+
+        if not os.path.exists(self._outfile):
+            return
+
+        self.flush()
+        os.remove(self._outfile)
+        self._initialize()
 
     def flush(self):
         """
@@ -209,6 +237,9 @@ class SqliteConverter(BaseConverter):
     _INSERT_FAMILY = """INSERT OR REPLACE INTO families
       VALUES(?, ?, ?, ?, ?, ?, ?, ?)"""
 
+    _CLEAR_TABLE_PERSON = """DROP TABLE people;"""
+    _CLEAR_TABLE_FAMILY = """DROP TABLE families;"""
+
     def __init__(self):
         self._outfile = ""
         self._chunk_size = _CHUNK_SIZE
@@ -217,6 +248,23 @@ class SqliteConverter(BaseConverter):
 
         self._conn = None
         self._cur = None
+
+    def clear_existing_data(self):
+        """Remove output file if it exists
+
+        Raises:
+            IOError if unable to remove file
+        """
+        if not self._outfile:
+            return
+
+        if not os.path.exists(self._outfile):
+            return
+
+        self._cur.execute(self._CLEAR_TABLE_PERSON)
+        self._cur.execute(self._CLEAR_TABLE_FAMILY)
+        self._conn.commit()
+        self._create_tables()
 
     def flush(self):
         """
@@ -233,15 +281,20 @@ class SqliteConverter(BaseConverter):
         except IOError as e:
             print("Error closing sqlite connection", e)
 
+    def _create_tables(self):
+        """
+        Creates our required tables if they don't already exist
+        """
+        self._cur.execute(self._CREATE_TABLE_PERSON)
+        self._cur.execute(self._CREATE_TABLE_FAMILY)
+
     def _initialize(self):
         """
-        Open connection to db, prepare tables if they don't exist
+        Open connection to db, create tables if they don't exist
         """
         self._conn = lite.connect(self._outfile)
         self._cur = self._conn.cursor()
-
-        self._cur.execute(self._CREATE_TABLE_PERSON)
-        self._cur.execute(self._CREATE_TABLE_FAMILY)
+        self._create_tables()
 
     @staticmethod
     def help_string():

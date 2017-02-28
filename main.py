@@ -37,6 +37,12 @@ def parse_args():
     """
     ps = ArgumentParser(description=__doc__)
     ps.add_argument("-i", "--input", required=True, help="Input .ged file [required]")
+    ps.add_argument(
+        "-r",
+        "--replace",
+        action="store_true",
+        help="Remove data in output files (if any) rather than append. WARNING: DESTROYS DATA."
+    )
 
     # Add our Converter args dynamically
     for conv_name in _CONVERTERS:
@@ -60,8 +66,17 @@ def main(args):
         if not arg:
             continue
 
+        # instantiate new converter
         converter = clas()
+
+        # load given arg & initialize class
         converter.load_arg(arg)
+
+        # possibly trigger the --replace function
+        if args.replace:
+            converter.clear_existing_data()
+
+        # add to our list of converters
         converters.append(converter)
 
     # if we have nothing selected, we'll just print
