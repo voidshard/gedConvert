@@ -9,6 +9,7 @@ import utils
 # size limit for the number of objects to hold at once
 # before writing out
 _CHUNK_SIZE = 100
+_NULL_STRING = "None"
 
 
 class BaseConverter(object):
@@ -138,13 +139,14 @@ class FamilyCsv(BaseConverter):
             str
         """
         return "%s\n" % ",".join([
-            family.id,
-            family.husband_id,
-            family.wife_id,
+            family.id or _NULL_STRING,
+            family.husband_id or _NULL_STRING,
+            family.wife_id or _NULL_STRING,
             "%s-%s-%s" % (
                 family.marriage_day,
                 family.marriage_month,
-                family.marriage_year)
+                family.marriage_year
+            )
         ])
 
     def save_family(self, family):
