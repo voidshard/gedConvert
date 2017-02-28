@@ -7,7 +7,7 @@ python ./main.py -i all.ged --to-sqlite all.sqlite
 ```
 
 ```
-usage: main.py [-h] -i INPUT [--to-print] [--to-familyCsv TO_FAMILYCSV]
+usage: main.py [-h] -i INPUT [-r] [--to-print] [--to-familyCsv TO_FAMILYCSV]
                [--to-sqlite TO_SQLITE]
 
 Parse a .ged file into other format(s). Feel free to add your own classes to
@@ -17,6 +17,8 @@ optional arguments:
   -h, --help            show this help message and exit
   -i INPUT, --input INPUT
                         Input .ged file [required]
+  -r, --replace         Remove data in output files (if any) rather than
+                        append. WARNING: DESTROYS DATA.
   --to-print            Print data to shell [default if no converter selected]
   --to-familyCsv TO_FAMILYCSV
                         Output file path for family csv data (created if
