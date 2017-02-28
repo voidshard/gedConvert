@@ -48,3 +48,4 @@ Bugs fixed,
 - Bug where the last obj record would not be saved
 - Parser using silly defaults instead of simply 'None' (whose idea WAS that anyway ..)
 - Bug where a list and int were compared rather than len(list)
+- Fix edge case where a family record can be missing a husband / wife id (???)
