@@ -4,6 +4,7 @@
 
 from argparse import ArgumentParser
 
+import os
 import sqlite3 as lite
 
 
@@ -21,9 +22,13 @@ class Trawler:
         """Fetch people by their IDs
         """
         pids = ", ".join([str(i) for i in ids])
-            """SELECT id,firstname,surname,married_name,childhood_family_id
-               FROM "main"."people"
-               WHERE childhood_family_id IN (%s)""" % pids
+        self._cur.execute("""SELECT id,
+                                    firstname,
+                                    surname,
+                                    married_name,
+                                    childhood_family_id
+            FROM "main"."people"
+            WHERE childhood_family_id IN (%s)""" % pids)
         return self._cur.fetchall()
 
     def _get_children(self, ids):
@@ -38,8 +43,7 @@ class Trawler:
                   FROM "main"."families"
                   WHERE husband_id in (%s)
                   OR wife_id in (%s)
-               )""" % (pids, pids)
-        )
+               )""" % (pids, pids))
         return self._cur.fetchall()
 
     def trawl(self, ids):
@@ -73,10 +77,19 @@ class Trawler:
             pass
 
 
+def readfile(fpath):
+    """Read lines from a file
+    """
+    with open(fpath, "r") as f:
+        return [l.strip() for l in f.readlines()]
+
+
 def parse_args():
+    """Parse cli args
+    """
     ps = ArgumentParser(description=__doc__)
     ps.add_argument("-i", "--input", help="SQLite database file")
-    ps.add_argument("--ids", nargs="*", type=int, help="Person ID(s) to start with")
+    ps.add_argument("--ids", help="File of person ID(s), one per line")
     return ps.parse_args()
 
 
@@ -88,7 +101,7 @@ if __name__ == "__main__":
     t = Trawler(args.input)
 
     # ask it to trawl & pass the starting person ids
-    t.trawl(args.ids)
+    t.trawl(readfile(args.ids))
 
     # close the db connection
     t.close()
