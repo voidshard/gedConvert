@@ -78,10 +78,10 @@ class Trawler:
 
 
 def readfile(fpath):
-    """Read lines from a file
+    """Read nonblank lines from a file
     """
     with open(fpath, "r") as f:
-        return [l.strip() for l in f.readlines()]
+        return [l.strip() for l in f.readlines() if l.strip()]
 
 
 def parse_args():
