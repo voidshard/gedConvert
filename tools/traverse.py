@@ -26,7 +26,10 @@ class Trawler:
                                     firstname,
                                     surname,
                                     married_name,
-                                    childhood_family_id
+                                    childhood_family_id,
+                                    birth_date_day,
+                                    birth_date_month,
+                                    birth_date_year
             FROM "main"."people"
             WHERE childhood_family_id IN (%s)""" % pids)
         return self._cur.fetchall()
@@ -36,7 +39,7 @@ class Trawler:
         """
         pids = ", ".join([str(i) for i in ids])
         self._cur.execute(
-            """SELECT id,firstname,surname,married_name,childhood_family_id
+            """SELECT id,firstname,surname,married_name,childhood_family_id,birth_date_day,birth_date_month,birth_date_year
                FROM "main"."people"
                WHERE childhood_family_id IN (
                   SELECT id
@@ -46,12 +49,18 @@ class Trawler:
                )""" % (pids, pids))
         return self._cur.fetchall()
 
+    @staticmethod
+    def _print_row(r):
+        birthdate = f"{r[-3]}-{r[-2]}-{r[-1]}"
+        fields = [str(i) for i in list(r)[0:-3]]
+        print("%s,%s" % (",".join(fields), birthdate))
+
     def trawl(self, ids):
         """Find all descendants of the given people (by their IDs)
         """
         # first, get information on the given starting people
         for p in self._get_people(ids):
-            print(k)
+            self._print_row(p)
 
         # prep a stack that we'll use to track who we should check next
         stack = ids
@@ -66,7 +75,7 @@ class Trawler:
             # add everyone we just found to the stack as we print them out
             for k in kids:
                 stack.append(k[0])
-                print(k)
+                self._print_row(k)
 
     def close(self):
         """Close db file
