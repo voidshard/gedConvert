@@ -99,7 +99,7 @@ def parse_args():
 
     # -- "search" command
     search = subparsers.add_parser("search", help="Search for people by various fields (best effort; data is messy)")
-    search.add_argument("--seperator", type=str, default="\t", help="Column seperator. Default: <tab>")
+    search.add_argument("--separator", type=str, default="\t", help="Column separator. Default: <tab>")
     search.add_argument("--born-after", type=int, help="Birth year start, the start of a date range (inclusive)")
     search.add_argument("--born-before", type=int, help="Birth year end, the end of a date range (inclusive)")
     search.add_argument("--died-after", type=int, help="Death year start, the start of a date range (inclusive)")
@@ -146,10 +146,10 @@ def cmd_search(args):
         found += len(results)
 
         if not header and found > 0:
-            print(results[0].row_header(sep=args.seperator))
+            print(results[0].row_header(sep=args.separator))
             header = True
         for r in results:
-            print(r.tsv(sep=args.seperator))
+            print(r.tsv(sep=args.separator))
 
         if len(results) == 0:
             break
