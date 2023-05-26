@@ -114,8 +114,7 @@ def _handle_date(val):
     Returns:
         int, int, int
     """
-    bits = val.split(" ")
-    return utils.parse_partial_date(bits)
+    return utils.parse_partial_date(val)
 
 
 def _handle_time(val):
@@ -442,7 +441,7 @@ class _Person(_DBObj):
             int or None
         """
         return self._get_date("BIRT", 2)
-        
+
     @property
     def death_year(self):
         """Return the person's date of death
@@ -489,7 +488,7 @@ class _Person(_DBObj):
             int or None
         """
         return self._get_date("BURI", 1)
-    
+
     @property
     def birth_day(self):
         """Return the person's birth day

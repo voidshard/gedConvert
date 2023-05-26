@@ -4,6 +4,7 @@
 import glob
 import os
 import sys
+import re
 import hashlib
 import warnings
 
@@ -46,6 +47,9 @@ _CONV_ARG_PREFIX = "to"
 
 # By default, we use this to print data to shell
 _DEFAULT_CONVERTER = conv.PrintConverter
+
+# accept only alpha chars
+_RE_ALPHA_ONLY = re.compile('[^a-z]')
 
 
 def parse_args():
@@ -93,6 +97,17 @@ def parse_args():
     trav.add_argument("--ids", help="File of person ID(s), one per line", required=True)
     trav.set_defaults(func=cmd_traverse)
 
+    # -- "search" command
+    search = subparsers.add_parser("search", help="Search for people by various fields (best effort; data is messy)")
+    search.add_argument("--seperator", type=str, default="\t", help="Column seperator. Default: <tab>")
+    search.add_argument("--born-after", type=int, help="Birth year start, the start of a date range (inclusive)")
+    search.add_argument("--born-before", type=int, help="Birth year end, the end of a date range (inclusive)")
+    search.add_argument("--died-after", type=int, help="Death year start, the start of a date range (inclusive)")
+    search.add_argument("--died-before", type=int, help="Death year end, the end of a date range (inclusive)")
+    search.add_argument("--birth-place", nargs="*", help="Birth place. Ignores non-alpha characters (ie. non a-z). Slow.")
+    search.add_argument("--death-place", nargs="*", help="Death place. Ignores non-alpha characters (ie. non a-z). Slow.")
+    search.set_defaults(func=cmd_search)
+
     args = ps.parse_args()
 
     if not args.input:
@@ -102,6 +117,42 @@ def parse_args():
             sys.exit(0)
 
     return args
+
+
+def cmd_search(args):
+    """
+    """
+    # rip out all the characters that aren't alpha
+    args.birth_place = [_RE_ALPHA_ONLY.sub("", p.lower()) for p in args.birth_place or []]
+    args.death_place = [_RE_ALPHA_ONLY.sub("", p.lower()) for p in args.death_place or []]
+
+    # load the db
+    dbfile = ensure_database(args.input)
+    dbase = database.Database(dbfile)
+
+    found = 0
+    header = False
+
+    while True:
+        results = dbase.find_people(
+            birth_year_start=args.born_after,
+            birth_year_end=args.born_before,
+            death_year_start=args.died_after,
+            death_year_end=args.died_before,
+            birth_place=args.birth_place,
+            death_place=args.death_place,
+            offset=found,
+        )
+        found += len(results)
+
+        if not header and found > 0:
+            print(results[0].row_header(sep=args.seperator))
+            header = True
+        for r in results:
+            print(r.tsv(sep=args.seperator))
+
+        if len(results) == 0:
+            break
 
 
 def readfile(fpath):
@@ -144,6 +195,7 @@ def cmd_traverse(args):
         for k in kids:
             stack.append(k[0])
             _print_row(k)
+
 
 def cmd_pioneer(args):
     """
@@ -257,6 +309,12 @@ def hash_file(filename):
     return hasher.hexdigest()
 
 
+def sanitize(s):
+    """Remove any non-ascii characters from a string
+    """
+    return "".join([c for c in s if ord(c) < 128])
+
+
 def main(args):
     if not hasattr(args, "func"):
         # if the user doesn't pick a function, we'll call "parse"
@@ -357,7 +415,8 @@ def ensure_database(datafile):
             slite.flush()
         print("- done")
     else:
-        print(f"Database looks to be up-to-date with {datafile}, skipping reparsing")
+        # skip reparsing the database as it looks to be up-to-date
+        pass
 
     return dbfile
 

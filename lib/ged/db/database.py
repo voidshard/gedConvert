@@ -6,7 +6,7 @@ from ged.db import classes
 
 
 class Database:
-    """Simple object to wrap our db logic
+    """Simple object to wrap our db logic.
     """
 
     def __init__(self, input):
@@ -15,13 +15,88 @@ class Database:
         self._conn = lite.connect(input)
         self._cur = self._conn.cursor()
 
+    def find_people(
+        self,
+        birth_year_start=None,
+        birth_year_end=None,
+        death_year_start=None,
+        death_year_end=None,
+        birth_place=None,
+        death_place=None,
+        limit=500,
+        offset=0,
+    ):
+        """Find people by birth / death year and place
+
+        Args:
+            birth_year_start (int): start of birth year range
+            birth_year_end (int): end of birth year range
+            death_year_start (int): start of death year range
+            death_year_end (int): end of death year range
+            birth_place ([]str): birth place
+            death_place ([]str): death place
+            limit (int): limit results returned
+            offset (int): offset for pagination
+        """
+        birth_place = birth_place or []
+        death_place = death_place or []
+
+        where = []
+
+        if birth_place:
+            place = " OR ".join(["LOWER(p.birth_place) LIKE '%%%s%%'" % b for b in birth_place])
+            where.append("(%s)" % place)
+        if death_place:
+            place = " OR ".join(["LOWER(p.death_place) LIKE '%%%s%%'" % d for d in death_place])
+            where.append("(%s)" % place)
+        if birth_year_start:
+            where.append("p.birth_date_year >= %d" % birth_year_start)
+        if birth_year_end:
+            where.append("p.birth_date_year <= %d" % birth_year_end)
+        if death_year_start:
+            where.append("p.death_date_year >= %d" % death_year_start)
+        if death_year_end:
+            where.append("p.death_date_year <= %d" % death_year_end)
+
+        where = " AND ".join(where)
+
+        self._cur.execute("""SELECT
+            p.id,
+            p.firstname,
+            p.surname,
+            p.married_name,
+            p.aliases,
+            p.given_names,
+            p.is_male,
+            p.note,
+            p.childhood_family_id,
+            p.last_updated,
+            p.birth_place,
+            p.death_place,
+            p.burial_place,
+            p.birth_date_day,
+            p.birth_date_month,
+            p.birth_date_year,
+            p.death_date_day,
+            p.death_date_month,
+            p.death_date_year,
+            p.burial_date_day,
+            p.burial_date_month,
+            p.burial_date_year
+        FROM "main"."people" as p
+        WHERE %s
+        ORDER BY p.id ASC
+        LIMIT %d OFFSET %d
+        """ % (where, limit, offset))
+        return [classes.Person(row) for row in self._cur.fetchall()]
+
     def get_families(self):
         """Fetch families, joining People to fill in names / birth / death dates.
         """
         self._cur.execute("""SELECT
 	    f.id as mrin,
 	    f.husband_id,
-    	    f.wife_id,
+    	f.wife_id,
 	    f.marriage_day,
 	    f.marriage_month,
 	    f.marriage_year,
